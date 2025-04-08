@@ -15,6 +15,10 @@ const uint32_t HEIGHT = 600;
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
+const std::vector<const char*> deviceExtensions = {
+          VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -100,6 +104,7 @@ private:
 
         return true;
     }
+  
  
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
@@ -153,11 +158,6 @@ private:
         }
 
 
-
-        
-
-
-
         VkPhysicalDeviceFeatures deviceFeatures{};
 
         VkDeviceCreateInfo createInfo{};
@@ -195,9 +195,10 @@ private:
 
         return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader; 
         */
-
+      
         QueueFamilyIndices indices = findQueueFamilies(device);
-        return indices.isComplete();
+        bool extensionsSupported = checkDeviceExtensionSupport(device);
+        return indices.isComplete() && extensionsSupported;
 
     }
 
@@ -210,6 +211,23 @@ private:
         }
      
     };
+
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
+        uint32_t extensionCount;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+        
+        std::vector<VkExtensionProperties>availableExtensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+        std::set<std::string> requiredExtension(deviceExtensions.begin(), deviceExtensions.end());
+
+        for (const auto& extension : availableExtensions) {
+            requiredExtension.erase(extension.extensionName);
+        }
+
+        return requiredExtension.empty();
+
+    }
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
         QueueFamilyIndices indices;
