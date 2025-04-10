@@ -68,6 +68,9 @@ private:
     VkQueue presentQueue;
     VkSurfaceKHR surface;
     VkSwapchainKHR swapChain;
+    std::vector<VkImage> swapChainImages;
+    VkExtent2D swapChainExtent;
+    VkFormat swapChainImageFormat;
 
 
     std::vector<const char*> getRequiredExtensions() {
@@ -144,7 +147,7 @@ private:
         VkExtent2D extend = chooseSwapExtent(swapChainSuppport.capabilities);
 
         uint32_t imageCount = swapChainSuppport.capabilities.minImageCount + 1; // Plus one because we don't want to wait before we can get another image to render to
-        
+     
         if (swapChainSuppport.capabilities.maxImageCount > 0 && imageCount > swapChainSuppport.capabilities.maxImageCount) {
             imageCount = swapChainSuppport.capabilities.maxImageCount;
         }
@@ -182,7 +185,12 @@ private:
         if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create swap chain!");
         }
+        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+        swapChainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
 
+        swapChainExtent = extend;
+        swapChainImageFormat = surfaceFormat.format;
     }
 
     void createSurface() {
