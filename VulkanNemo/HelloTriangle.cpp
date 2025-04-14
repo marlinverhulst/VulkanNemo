@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <cstdlib>
 
-class HelloTraingleApplication {
+class HelloTriangleApplication {
 public:
 	void run() {
 		initVulkan();

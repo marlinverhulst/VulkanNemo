@@ -1,4 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
+#include <fstream>
 #include <glfw3.h>
 #include <iostream>
 #include <stdexcept>
@@ -30,6 +31,21 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif // NDEBUG
 
+static std::vector<char> readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open file!");
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+    return buffer;
+}
+
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if (func != nullptr) {
@@ -48,7 +64,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 }
 
 
-class HelloTraingleApplication {
+class HelloTriangleApplication {
 public:
     void run() {
         initWindow();
@@ -141,6 +157,107 @@ private:
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createGraphicsPipeline();
+    }
+
+    VkShaderModule createShaderModule(const std::vector<char>& code) {
+        /*
+        * Creating a shader module is simple, we only need to specify a pointer to the
+        * buffer with the bytecode and the length of it. This information is specified in
+        * a VkShaderModuleCreateInfo structure. The one catch is that the size of the
+        * bytecode is specified in bytes, but the bytecode pointer is a uint32_t pointer
+        * rather than a char pointer. Therefore we will need to cast the pointer with
+        * reinterpret_cast as shown below. When you perform a cast like this, you also
+        * need to ensure that the data satisfies the alignment requirements of uint32_t.
+        * Lucky for us, the data is stored in an std::vector where the default allocator
+        * already ensures that the data satisfies the worst case alignment requirements.
+        */
+
+        VkShaderModuleCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        createInfo.codeSize = code.size();
+        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+        VkShaderModule shaderModule;
+        if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create shaderModule");
+        }
+
+        return shaderModule;
+    }
+
+    void createGraphicsPipeline() {
+        auto vertShaderCode = readFile("src/shaders/vert.spv");
+        auto fragShaderCode = readFile("src/shaders/frag.spv");
+
+        std::cout << "Vert " << vertShaderCode.size();
+        std::cout << "Frag " << fragShaderCode.size();
+
+        VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+        VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+        VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertShaderStageInfo.module = vertShaderModule;
+        vertShaderStageInfo.pName = "main"; // this is the entypoint
+
+        VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        vertShaderStageInfo.module = fragShaderModule;
+        vertShaderStageInfo.pName = "main"; // this is the entypoint
+
+        VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.vertexBindingDescriptionCount = 0;
+        vertexInputInfo.pVertexBindingDescriptions = nullptr; // optional 
+        vertexInputInfo.vertexAttributeDescriptionCount = 0;
+        vertexInputInfo.pVertexAttributeDescriptions = nullptr; // optional
+
+        VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
+        inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float)swapChainExtent.width;
+        viewport.height = (float)swapChainExtent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        VkRect2D scissor{};
+        scissor.offset = { 0, 0 };
+        scissor.extent = swapChainExtent;
+
+
+        std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+
+        VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{};
+        dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+        dynamicStateCreateInfo.pDynamicStates = dynamicStates.data();
+
+        VkPipelineViewportStateCreateInfo viewportState{};
+        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewportState.viewportCount = 1;
+        viewportState.pViewports = &viewport;
+        viewportState.scissorCount = 1;
+        viewportState.pScissors = &scissor;
+
+
+
+        // cleanup can be done ater the pipeline is created
+
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
+
+
     }
 
     void createImageViews() {
@@ -550,11 +667,11 @@ private:
     }
 };
 
-// Left at page 88 Graphics pipeline basics
+// Left at page 104 Rasterizer
 
 
 int main() {
-    HelloTraingleApplication app;
+    HelloTriangleApplication app;
 
     try {
         app.run();

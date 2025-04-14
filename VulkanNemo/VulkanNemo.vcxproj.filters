@@ -22,4 +22,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\shader.vert" />
+    <None Include="src\shaders\shader.frag" />
+    <None Include="src\shaders\compileShaders.sh" />
+  </ItemGroup>
 </Project>
