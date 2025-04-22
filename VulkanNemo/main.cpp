@@ -92,6 +92,8 @@ private:
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     std::vector<VkFramebuffer> swapChainFrameBuffers;
+    VkCommandPool commandpool;
+    VkCommandBuffer commandBuffer;
 
 
 
@@ -164,6 +166,70 @@ private:
         createRenderPass();
         createGraphicsPipeline();
         createFrameBuffers();
+        createCommandPool();
+        createCommandBuffer();
+    }
+
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = 0; // optional
+        beginInfo.pInheritanceInfo = nullptr; // optional (ONLY FOR SECONDARY COMMAND BUFFERS)
+
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to begin the recording of the command buffer!");
+        }
+
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassInfo.renderPass = renderPass;
+        renderPassInfo.framebuffer = swapChainFrameBuffers[imageIndex];
+        renderPassInfo.renderArea.offset = { 0,0 };
+        renderPassInfo.renderArea.extent = swapChainExtent;    
+
+        VkClearValue clearColor = { {{0.0f,0.0f,1.0f, 1.0f}} };
+        renderPassInfo.clearValueCount = 1;
+        renderPassInfo.pClearValues = &clearColor;
+
+        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+        // Because we defined the viewport and scissors as being dynamic we need to set them here before the draw command;
+        VkViewport viewPort{};
+        viewPort.x = 0.0f;
+        viewPort.y = 0.0f;
+        viewPort.width = static_cast<float>(swapChainExtent.width);
+        viewPort.height= static_cast<float>(swapChainExtent.height);
+        viewPort.minDepth = 0.0f;
+        viewPort.maxDepth = 1.0f;
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewPort);
+
+
+      
+    }
+
+    void createCommandBuffer() {
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandpool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = 1;
+
+        if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create command buffers!");
+        }
+    }
+
+    void createCommandPool() {
+        QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+        if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandpool) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create CommandPool!");
+        }
     }
 
     void createFrameBuffers() {
@@ -489,7 +555,7 @@ private:
 
     void createLogicalDevice() {
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-
+       
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
         std::set<uint32_t> uniqueQueueFamilies = {
             indices.graphicsFamily.value(), indices.presentFamily.value()
@@ -723,6 +789,7 @@ private:
     }
 
     void cleanUp() {
+        vkDestroyCommandPool(device, commandpool, nullptr);
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
@@ -815,7 +882,7 @@ private:
     }
 };
 
-// Left at page 119 Command Buffers
+// Left at page 124 Scissors
 
 
 int main() {
