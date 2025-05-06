@@ -156,6 +156,13 @@ private:
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
 
+	clock_t deltaTime = 0;
+	unsigned int frames = 0;
+	double  frameRate = 30;
+	double  averageFrameTimeMilliseconds = 33.333;
+
+	
+
 
 	std::vector<const char*> getRequiredExtensions()
 	{
@@ -265,41 +272,114 @@ private:
 		throw std::runtime_error("Failed to find a suitable memory type!");
 	}
 
-	void createVertexBuffer()
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+	{
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = commandpool;
+		/* You may wish to create a separate command pool for these kinds of short-lived
+		 * buffers, because the implementation may be able to apply memory allocation
+		 * optimizations. You should use the VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
+		 * flag during command pool generation in that case.
+		 */
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+
+		vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		VkBufferCopy copyRegion{};
+		copyRegion.srcOffset = 0; //optional
+		copyRegion.dstOffset = 0; //optional
+		copyRegion.size = size;
+		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+		vkEndCommandBuffer(commandBuffer);
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue);
+
+		/*
+		 *
+		 *  We could use a
+		 *	fence and wait with vkWaitForFences, or simply wait for the transfer queue
+		 *	to become idle with vkQueueWaitIdle. A fence would allow you to schedule
+		 *	multiple transfers simultaneously and wait for all of them complete, instead
+		 *	of executing one at a time. That may give the driver more opportunities to
+		 *	optimize.
+		 *
+		 */
+
+		vkFreeCommandBuffers(device, commandpool, 1, &commandBuffer);
+	}
+
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props, 
+		VkBuffer& buffer, VkDeviceMemory& bufferMemory )
 	{
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
+		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create vertex buffer!");
 		}
 
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+		vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, props);
 
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
+		if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
 		{
 			throw std::runtime_error("Failed to allocate memory for the vertex buffer!");
 		}
 
-		vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+		vkBindBufferMemory(device, buffer, bufferMemory, 0);
+	}
+
+	void createVertexBuffer()
+	{
+		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferemory;
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer, stagingBufferemory);
+
 
 		// copy over the data;
 
 		void* data;
-		vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-		memcpy(data, vertices.data(), (size_t)bufferInfo.size);
+		vkMapMemory(device, stagingBufferemory, 0, bufferSize, 0, &data);
+		memcpy(data, vertices.data(), (size_t)bufferSize);
 
-		vkUnmapMemory(device, vertexBufferMemory);
+		vkUnmapMemory(device, stagingBufferemory);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+
+		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingBufferemory, nullptr);
 	}
 
 	void cleanUpSwapChain()
@@ -1069,14 +1149,38 @@ private:
 
 	void mainLoop()
 	{
+		clock_t current_ticks, delta_ticks;
+
 		while (!glfwWindowShouldClose(window))
 		{
 			glfwPollEvents();
+
+
+			clock_t begin = clock();
+			current_ticks = clock();
+
 			drawFrame();
+
+			delta_ticks = clock() - current_ticks;
+			clock_t end = clock();
+
+#ifdef NDEBUG
+			if (delta_ticks > 0)
+			{
+				int fps = CLOCKS_PER_SEC / delta_ticks;
+				std::cout << fps << std::endl;
+			}
+
+#endif
+
+			
+		
 		}
 
 		vkDeviceWaitIdle(device);
 	}
+
+
 
 
 	void drawFrame()
@@ -1257,7 +1361,7 @@ private:
 	}
 };
 
-// Left at 147 Vertex input description
+// Left at 158 staging Buffer 
 
 
 int main()
