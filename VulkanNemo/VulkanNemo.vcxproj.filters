@@ -24,4 +24,9 @@
     <None Include="src\shaders\shader.frag" />
     <None Include="src\shaders\compileShaders.sh" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\vendor\stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

@@ -104,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\VulkanSDK\1.3.296.0\Include;C:\Users\marli\development\vulkan\VulkanNemo\VulkanNemo\dependancies\lib-vc2022\include;$(SolutionDir)\VulkanNemo\VulkanNemo\dependancies\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\VulkanNemo\src\vendor;D:\VulkanSDK\1.3.296.0\Include;C:\Users\marli\development\vulkan\VulkanNemo\VulkanNemo\dependancies\lib-vc2022\include;$(SolutionDir)\VulkanNemo\VulkanNemo\dependancies\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -122,7 +122,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\VulkanSDK\1.3.296.0\Include;C:\Users\marli\development\vulkan\VulkanNemo\VulkanNemo\dependancies\lib-vc2022\include;$(SolutionDir)\VulkanNemo\VulkanNemo\dependancies\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\VulkanNemo\src\vendor;D:\VulkanSDK\1.3.296.0\Include;C:\Users\marli\development\vulkan\VulkanNemo\VulkanNemo\dependancies\lib-vc2022\include;$(SolutionDir)\VulkanNemo\VulkanNemo\dependancies\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -141,6 +141,9 @@
     <None Include="src\shaders\compileShaders.sh" />
     <None Include="src\shaders\shader.frag" />
     <None Include="src\shaders\shader.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\vendor\stb_image.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

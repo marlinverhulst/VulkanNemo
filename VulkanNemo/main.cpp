@@ -1,7 +1,9 @@
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define STB_IMAGE_IMPLEMENTATION
 
+#include <stb_image.h>
 #include <glm/glm.hpp>
 #include <chrono>
 #include <glm/gtc/matrix_transform.hpp>
