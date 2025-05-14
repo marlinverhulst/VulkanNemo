@@ -145,6 +145,9 @@
   <ItemGroup>
     <ClInclude Include="src\vendor\stb_image.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="src\textures\texture.jpg" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
