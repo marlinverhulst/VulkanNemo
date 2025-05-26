@@ -139,14 +139,17 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\compileShaders.sh" />
+    <None Include="src\shaders\frag.spv" />
     <None Include="src\shaders\shader.frag" />
     <None Include="src\shaders\shader.vert" />
+    <None Include="src\shaders\vert.spv" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\vendor\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="src\textures\texture.jpg" />
+    <Image Include="src\textures\texture.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

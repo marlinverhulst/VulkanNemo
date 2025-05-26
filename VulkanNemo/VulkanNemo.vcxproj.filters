@@ -23,6 +23,8 @@
     <None Include="src\shaders\shader.vert" />
     <None Include="src\shaders\shader.frag" />
     <None Include="src\shaders\compileShaders.sh" />
+    <None Include="src\shaders\vert.spv" />
+    <None Include="src\shaders\frag.spv" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\vendor\stb_image.h">
@@ -31,6 +33,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="src\textures\texture.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="src\textures\texture.png">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
