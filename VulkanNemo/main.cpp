@@ -3,7 +3,9 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define STB_IMAGE_IMPLEMENTATION
+#define TINYOBJLOADER_IMPLEMENTATION
 
+#include <tiny_obj_loader.h>
 #include <stb_image.h>
 #include <glm/glm.hpp>
 #include <chrono>
@@ -25,6 +27,9 @@
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
+const std::string MODEL_PATH = "src/models/viking_room.obj";
+const std::string TEXTURE_PATH = "src/models/viking_room.png";
 
 struct UniformBufferObject
 {
@@ -74,21 +79,9 @@ struct Vertex
 
 
 
-const std::vector<Vertex> vertices = {
-	{{-0.5f, -0.5f,0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-	{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f,0.0f}},
-	{{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f,1.0f}},
-	{{-0.5f, 0.5f, 0.0f}, {1.0f,1.0f,1.0f},{1.0f,1.0f}},
+ std::vector<Vertex> vertices;
 
-	{{-0.5f, -0.5f,-0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-	{{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f,0.0f}},
-	{{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f,1.0f}},
-	{{-0.5f, 0.5f, -0.5f}, {1.0f,1.0f,1.0f},{1.0f,1.0f}}
-		
-
-};
-
-const std::vector<uint16_t> indices = {0,1,2,2,3,0,4,5,6,6,7,4};
+std::vector<uint32_t> indices;
 
 
 const std::vector<const char*> validationLayers = {
@@ -304,6 +297,7 @@ private:
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
+		loadModel();
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffers();
@@ -311,6 +305,48 @@ private:
 		createDescriptorSets();
 		createCommandBuffers();
 		createSyncObjects();
+	}
+
+	void loadModel()
+	{
+		tinyobj::attrib_t attrib;
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
+		std::string warn, error;
+
+		if (!tinyobj::LoadObj(&attrib,&shapes,&materials, &warn, &error, MODEL_PATH.c_str()))
+		{
+			throw std::runtime_error(warn + error);
+		}
+
+		for (const auto& shape : shapes)
+		{
+			for (const auto& index : shape.mesh.indices)
+			{
+				Vertex vertex{};
+
+				/* Unfortunately the attrib.vertices array is an array of float values instead
+					of something like glm::vec3, so you need to multiply the index by 3. */
+
+				vertex.pos = {
+					attrib.vertices[3 * index.vertex_index + 0],
+					attrib.vertices[3 * index.vertex_index + 1],
+					attrib.vertices[3 * index.vertex_index + 2]
+				};
+
+				vertex.texCoord = {
+					attrib.texcoords[2 * index.texcoord_index + 0],
+					1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+				};
+
+				vertex.color = { 1.0f, 1.0f,1.0f };
+
+
+				vertices.push_back(vertex);
+				indices.push_back(indices.size());
+
+			}
+		}
 	}
 
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
@@ -566,7 +602,7 @@ private:
 		int texWidth, texHeight, texChannels;
 		
 
-		stbi_uc* pixels = stbi_load("src/textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		if (!pixels)
@@ -968,7 +1004,7 @@ private:
 
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-		vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame],
 			0, nullptr);
@@ -1888,7 +1924,7 @@ private:
 	}
 };
 
-// Left at 231 Handling window resize
+// Left at 240 Vertex deduplication
 
 
 int main()
